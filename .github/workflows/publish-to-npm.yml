@@ -77,6 +77,16 @@ jobs:
           name: build-artifacts
           path: dist/
       
+      - name: Create .npmrc file for publishing
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
+          echo "@${{ github.repository_owner }}:registry=https://registry.npmjs.org/" >> .npmrc
+          echo "always-auth=true" >> .npmrc
+          echo "save-exact=true" >> .npmrc
+          cat .npmrc
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      
       - name: Determine version strategy
         id: version-strategy
         run: |
@@ -110,9 +120,46 @@ jobs:
           fi
       
       - name: Publish to npm
-        run: npm publish --access public
+        run: |
+          # Check if we have a valid npm token
+          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+            echo "Error: NODE_AUTH_TOKEN is not set in GitHub Secrets"
+            echo "Please set the NPM_TOKEN secret in your repository settings"
+            exit 1
+          fi
+          
+          # Print npm configuration for debugging
+          echo "=== NPM Configuration ==="
+          npm config list
+          echo "=========================="
+          
+          # Try to publish with npm
+          echo "Attempting to publish to npm..."
+          if npm publish --access public --loglevel verbose; then
+            echo "✅ Successfully published to npm!"
+          else
+            echo "❌ Failed to publish to npm"
+            echo ""
+            echo "Common issues and solutions:"
+            echo "1. **2FA Required**: The error indicates 2FA is enabled. Make sure your NPM_TOKEN is a:"
+            echo "   - Granular access token with 'Write packages' permission AND 'Bypass 2FA' enabled"
+            echo "   - OR a legacy token with 2FA disabled for publishing"
+            echo ""
+            echo "2. **Token Permissions**: Ensure your NPM_TOKEN has sufficient permissions to publish packages"
+            echo ""
+            echo "3. **Package Name**: Verify that you own the package name 'user-management-models' on npm"
+            echo ""
+            echo "How to create a valid token:"
+            echo "- Go to https://www.npmjs.com/settings/[username]/tokens"
+            echo "- Create a new token with type 'Granular Access Token'"
+            echo "- Set permissions: 'Read and Write' for Packages and Modules"
+            echo "- Enable 'Bypass 2FA' option"
+            echo "- Copy the token and set it as NPM_TOKEN in GitHub Secrets"
+            exit 1
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_USERCONFIG: .npmrc
       
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

@@ -167,7 +167,7 @@ jobs:
           retention-days: 14
       
       - name: Send notification on success
-        if: success()
+        if: ${{ success() && secrets.SLACK_WEBHOOK_URL != '' }}
         uses: 8398a7/action-slack@v3
         with:
           status: custom
@@ -215,10 +215,9 @@ jobs:
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        continue-on-error: true
       
       - name: Send notification on failure
-        if: failure()
+        if: ${{ failure() && secrets.SLACK_WEBHOOK_URL != '' }}
         uses: 8398a7/action-slack@v3
         with:
           status: custom
@@ -266,7 +265,6 @@ jobs:
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        continue-on-error: true
 
   cleanup:
     name: Cleanup
